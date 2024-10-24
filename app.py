@@ -5,16 +5,14 @@ import requests
 import os
 from functools import wraps
 import time
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Make sure to change this
 # Configure the cache
 cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache'})
 
-# Store the tokens globally
-ACCESS_TOKEN = 'your_initial_access_token'
-REFRESH_TOKEN = 'your_refresh_token'
-EXPIRES_AT = 1568775134  # Time in UNIX timestamp format
+
 
 # Dictionary to translate state and city names to Korean
 state_translation = {
@@ -38,9 +36,13 @@ city_translation = {
     "Yangpyeong": "양평시"
 }
 
+# Store the tokens globally
+ACCESS_TOKEN = ''
+REFRESH_TOKEN = os.getenv('STRAVA_REFRESH_TOKEN')
+EXPIRES_AT = 1568775134  # Time in UNIX timestamp format
 # Strava API credentials
-CLIENT_ID = '138076'
-CLIENT_SECRET = 'b33a4f38208e8ec3fed86116148050033b9ab55d'
+CLIENT_ID = os.getenv('STRAVA_CLIENT_ID')
+CLIENT_SECRET = os.getenv('STRAVA_CLIENT_SECRET')
 REDIRECT_URI = 'http://localhost:5000/authorization'
 
 # Strava OAuth URL
@@ -99,7 +101,15 @@ def login_required(f):
 
 @app.route('/')
 def home():
-    return f'<a href="{auth_url}">Connect with Strava</a>'
+    if ACCESS_TOKEN and REFRESH_TOKEN:
+        print("home: TOKEN YES")
+        print(ACCESS_TOKEN)
+        #segments = fetch_starred_segments()  # Fetch the segments from Strava
+        #return render_template('segments.html', segments=segments, states=states, cities=cities)  # Pass segments to the template
+        return redirect(url_for('segments'))
+    else:
+        print("home: TOKEN NO")
+        return f'<a href="{auth_url}">Connect with Strava</a>'
 
 # @app.route('/authorization')
 # def authorization():
@@ -205,28 +215,23 @@ def fetch_starred_segments():
     if response.status_code == 200:
         segments = response.json()
     else:
+        print(response)
         raise Exception("Failed to fetch segments")
 
-    # # Apply translation to state and city of each segment
-    # for segment in segments:
-    #     segment['state'] = state_translation.get(segment.get('state', ''), segment.get('state', ''))
-    #     segment['city'] = city_translation.get(segment.get('city', ''), segment.get('city', ''))
-
-    # # Fetch KOM and QOM details for each segment
-    # for segment in segments:
-    #     segment_id = segment["id"]
-    #     detail_response = requests.get(
-    #         f'https://www.strava.com/api/v3/segments/{segment_id}',
-    #         headers={'Authorization': f'Bearer {ACCESS_TOKEN}'}
-    #     )
-    #     if detail_response.status_code == 200:
-    #         segment_details = detail_response.json()
-    #         # Add KOM and QOM to the segment data
-    #         segment['kom_time'] = segment_details['xoms'].get('kom')
-    #         segment['qom_time'] = segment_details['xoms'].get('qom')
-    #     else:
-    #         segment['kom_time'] = None
-    #         segment['qom_time'] = None
+    for segment in segments:
+            segment_id = segment["id"]
+            detail_response = requests.get(
+                f'https://www.strava.com/api/v3/segments/{segment_id}',
+                headers={'Authorization': f'Bearer {ACCESS_TOKEN}'}
+            )
+            if detail_response.status_code == 200:
+                segment['details'] = detail_response.json()
+                # Add KOM and QOM to the segment data
+                segment['kom_time'] = segment['details']['xoms'].get('kom')
+                segment['qom_time'] = segment['details']['xoms'].get('qom')
+            else:
+                segment['kom_time'] = None
+                segment['qom_time'] = None
 
     return segments
         
@@ -235,11 +240,13 @@ def fetch_starred_segments():
 def segments():
     # Get the segments data from cache or fetch it if not cached
     #segments = fetch_starred_segments()
-
+    print("Segements Page Enter")
     cached_segments = cache.get('starred_segments')
+    print(cached_segments)
     if cached_segments:
         print("Using cached segments")
         segments = cached_segments
+
     else:
         print("Fetching new segments")
         segments = fetch_starred_segments()
@@ -287,21 +294,24 @@ def segments():
     #     segment['details'] = detail_response.json()
 
     # Fetch additional details for each segment (optional) and KOM and QOM details for each segment
-    for segment in segments:
-        segment_id = segment["id"]
-        detail_response = requests.get(
-            f'https://www.strava.com/api/v3/segments/{segment_id}',
-            headers={'Authorization': f'Bearer {ACCESS_TOKEN}'}
-        )
-        if detail_response.status_code == 200:
-            segment['details'] = detail_response.json()
-            segment_details = detail_response.json()
-            # Add KOM and QOM to the segment data
-            segment['kom_time'] = segment_details['xoms'].get('kom')
-            segment['qom_time'] = segment_details['xoms'].get('qom')
-        else:
-            segment['kom_time'] = None
-            segment['qom_time'] = None
+
+    # for segment in segments:
+    #     segment_id = segment["id"]
+    #     detail_response = requests.get(
+    #         f'https://www.strava.com/api/v3/segments/{segment_id}',
+    #         headers={'Authorization': f'Bearer {ACCESS_TOKEN}'}
+    #     )
+    #     if detail_response.status_code == 200:
+    #         print("LOG : segment detail start")
+    #         segment['details'] = detail_response.json()
+    #         print("LOG : segment detail end")
+    #         segment_details = detail_response.json()
+    #         # Add KOM and QOM to the segment data
+    #         segment['kom_time'] = segment_details['xoms'].get('kom')
+    #         segment['qom_time'] = segment_details['xoms'].get('qom')
+    #     else:
+    #         segment['kom_time'] = None
+    #         segment['qom_time'] = None
 
     return render_template('segments.html', segments=segments, states=states, cities=cities)
 # def segments():
@@ -450,7 +460,6 @@ def segments():
     # return render_template('segments.html', segments=segments, states=states, cities=cities)
 
 @app.route('/stats')
-@login_required
 def stats():
     access_token = session.get('access_token')
     if not access_token:
@@ -468,5 +477,20 @@ def stats():
 
     return render_template('stats.html', stats=stats)
 
+# # Custom error handler for 500 Internal Server Error
+# @app.errorhandler(500)
+# def internal_error(error):
+#     return render_template('error.html', error_message="An unexpected error occurred."), 500
+
+# # Custom error handler for 404 Not Found
+# @app.errorhandler(404)
+# def not_found(error):
+#     return render_template('error.html', error_message="Page not found."), 404
+
+# # Custom error handler for specific exceptions if needed
+# @app.errorhandler(Exception)
+# def handle_exception(e):
+#     return render_template('error.html', error_message=str(e)), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)
