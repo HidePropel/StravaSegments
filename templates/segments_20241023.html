@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starred Segments</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <!-- Include Leaflet CSS and JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        body {
+            padding: 20px;
+        }
+        .segment-card {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .segment-map {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+        }
+        #map {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+</head>
+<body>
+    <h1>My Starred Segments</h1>
+    <form method="GET" action="/segments" class="mb-4">
+        <div class="row">
+            <div class="col-md-4">
+                <input type="text" name="name" class="form-control" placeholder="Search by name" value="{{ request.args.get('name', '') }}">
+            </div>
+            <div class="col-md-3">
+                <input type="number" name="min_distance" class="form-control" placeholder="Min Distance (meters)" value="{{ request.args.get('min_distance', '') }}">
+            </div>
+            <div class="col-md-3">
+                <input type="number" name="min_elevation" class="form-control" placeholder="Min Elevation Gain (meters)" value="{{ request.args.get('min_elevation', '') }}">
+            </div>
+            <div class="col-md-3">
+                <select name="state" class="form-control">
+                    <option value="all">All States</option>
+                    {% for state in states %}
+                        <option value="{{ state }}" {% if state == request.args.get('state') %}selected{% endif %}>{{ state }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="city" class="form-control">
+                    <option value="all">All Cities</option>
+                    {% for city in cities %}
+                        <option value="{{ city }}" {% if city == request.args.get('city') %}selected{% endif %}>{{ city }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="container">
+        <div class="row">
+            {% for segment in segments %}
+            <div class="col-md-6">
+                <div class="segment-card">
+                    <h3>{{ segment.name }}</h3>
+                    <p><strong>Distance:</strong> {{ segment.distance }} km</p>
+                    <p><strong>Elevation Gain:</strong> {{ segment.total_elevation_gain }} meters</p>
+                    <p><strong>Average Grade:</strong> {{ segment.average_grade }}%</p>
+                    <p><strong>KOM Time:</strong> {{ segment.details.kom_time }} seconds</p>
+                    <p><strong>State:</strong> {{ segment.state }}</p>
+                    <p><strong>City:</strong> {{ segment.city }}</p>
+                    <p><strong>Attempts:</strong> {{ segment.details.effort_count }}</p>
+                    <a href="https://www.strava.com/segments/{{ segment.id }}" target="_blank">View on Strava</a><br>
+                    <a href="https://www.strava.com/segments/{{ segment.id }}#segment-leaderboard" target="_blank">View Leaderboard</a>
+                    <div id="map-{{ segment.id }}" class="segment-map"></div>
+                    
+                        <!-- Include Leaflet JS, heatmap, and polyline decoder -->
+                    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+                    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+                    <script src="https://unpkg.com/@mapbox/polyline"></script>
+                    
+                    <script>
+                        // Create the map for the current segment
+                        var map{{ segment.id }} = L.map('map-{{ segment.id }}').setView([{{ segment.start_latlng[0] }}, {{ segment.start_latlng[1] }}], 13);
+
+                        // Add the base tile layer to the map
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(map{{ segment.id }});
+
+                        // Add a marker at the start of the segment
+                        L.marker([{{ segment.start_latlng[0] }}, {{ segment.start_latlng[1] }}]).addTo(map{{ segment.id }})
+                            .bindPopup('<b>{{ segment.name }}</b>')
+                            .openPopup();
+
+                        // Decode the polyline using the polyline.js library
+                        var polyline{{ segment.id }} = polyline.decode('{{ segment.details.map.polyline }}');
+                        var latlngs{{ segment.id }} = polyline{{ segment.id }}.map(function(coords) {
+                            return [coords[0], coords[1]];  // Convert to [lat, lng] format for Leaflet
+                        });
+
+                        // Add the polyline route to the map
+                        L.polyline(latlngs{{ segment.id }}, {
+                            color: 'red',  // Color of the route
+                            weight: 5,      // Line thickness
+                            opacity: 0.7    // Line transparency
+                        }).addTo(map{{ segment.id }});
+                    </script>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Main map that shows all segments with heatmap -->
+    <div id="map"></div>
+
+    <!-- Include Leaflet JS, heatmap, and polyline decoder -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/@mapbox/polyline"></script>
+
+    <script>
+        // Initialize the main map
+        var map = L.map('map').setView([37.5665, 126.9780], 13);  // Seoul's coordinates
+
+        // Add a tile layer to the main map
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Prepare heatmap data from segments
+        var heatData = [
+            {% for segment in segments %}
+                [{{ segment.start_latlng[0] }}, {{ segment.start_latlng[1] }}, {{ segment.details.effort_count }}],
+            {% endfor %}
+        ];
+
+        // Create the heatmap layer
+        var heat = L.heatLayer(heatData, {
+            radius: 25,  // Adjust radius for heat intensity
+            blur: 15,    // Blurring effect
+            maxZoom: 17  // Maximum zoom level for heatmap
+        }).addTo(map);
+
+        // Draw the exact segment paths on the main map
+        {% for segment in segments %}
+            var decodedPolyline = polyline.decode('{{ segment.details.map.polyline }}');  // Decode the polyline
+            var latlngs = decodedPolyline.map(function(coords) {
+                return [coords[0], coords[1]];  // Convert to [lat, lng] format for Leaflet
+            });
+
+            // Add the polyline for each segment to the map
+            L.polyline(latlngs, {
+                color: 'blue',  // Change color if needed
+                weight: 5,
+                opacity: 0.7
+            }).addTo(map);
+        {% endfor %}
+    </script>
+
+</body>
+</html>

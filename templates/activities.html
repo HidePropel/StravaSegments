@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cycling Activities</title>
+</head>
+<body>
+    <h1>My Cycling Activities</h1>
+    <ul>
+        {% for activity in activities %}
+        <li>
+            Distance: {{ activity.distance }} meters, 
+            Time: {{ activity.moving_time }} seconds, 
+            Elevation Gain: {{ activity.total_elevation_gain }} meters
+        </li>
+        {% endfor %}
+    </ul>
+    <nav>
+        <a href="/">Home</a> |
+        <a href="/profile">Profile</a> |
+        <a href="/activities">Activities</a> |
+        <a href="/segments">Starred Segments</a> |
+        <a href="/stats">Statistics</a>
+    </nav>
+</body>
+</html>

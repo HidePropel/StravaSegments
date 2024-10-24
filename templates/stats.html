@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Statistics</title>
+</head>
+<body>
+    <h1>My Cycling Statistics</h1>
+    <p>Total Rides: {{ stats.all_ride_totals.count }}</p>
+    <p>Total Distance: {{ stats.all_ride_totals.distance / 1000 }} km</p>
+    <p>Total Elevation Gain: {{ stats.all_ride_totals.elevation_gain }} meters</p>
+    <p>Total Moving Time: {{ stats.all_ride_totals.moving_time / 3600 }} hours</p>
+
+    <h2>Recent Rides</h2>
+    <p>Recent Distance: {{ stats.recent_ride_totals.distance / 1000 }} km</p>
+    <p>Recent Elevation Gain: {{ stats.recent_ride_totals.elevation_gain }} meters</p>
+    <p>Recent Rides: {{ stats.recent_ride_totals.count }}</p>
+    <nav>
+        <a href="/">Home</a> |
+        <a href="/profile">Profile</a> |
+        <a href="/activities">Activities</a> |
+        <a href="/segments">Starred Segments</a> |
+        <a href="/stats">Statistics</a>
+    </nav>
+</body>
+</html>

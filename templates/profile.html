@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile</title>
+</head>
+<body>
+    <h1>My Strava Profile</h1>
+    <p>Name: {{ athlete.firstname }} {{ athlete.lastname }}</p>
+    <p>City: {{ athlete.city }}, {{ athlete.country }}</p>
+    <p>Premium: {{ athlete.premium }}</p>
+    <p>Total Following: {{ athlete.friend_count }}</p>
+    <p>Profile: <img src="{{ athlete.profile }}" alt="Profile picture"></p>
+    <nav>
+        <a href="/">Home</a> |
+        <a href="/profile">Profile</a> |
+        <a href="/activities">Activities</a> |
+        <a href="/segments">Starred Segments</a> |
+        <a href="/stats">Statistics</a>
+    </nav>
+</body>
+</html>
